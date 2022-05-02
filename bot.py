@@ -1,11 +1,14 @@
 import logging
 import requests
 import time
-from aiogram import Bot, Dispatcher, executor, types
 
-bot = Bot(token="5275856551:AAGxiJ_0oOuXSwGK4ZpYE4DdCQmrLl9Fb7U")
+from aiogram import Bot, Dispatcher, executor, types
+from ntoken import TOKEN
+from datetime import datetime
+
+bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(filename='log_file.log', level=logging.INFO)
 stop_trace_site = False
 stop_trace_stream = False
 
@@ -16,12 +19,13 @@ async def cmd_test1(message: types.Message):
     stop_trace_site = False
 
     while not stop_trace_site:
-        status = requests.get(url="https://golden-league.pro").status_code
-
-        if status != 200:
+        try:
+            status = requests.get(url="http://188.225.38.178:4000").status_code
+        except Exception as e:
             await message.answer("Сайт не отвечает")
-        else:
-            await message.answer("Сайт в порядке")
+            logging.error(str(datetime.now().strftime("%d-%m-%Y %H:%M:%S") + " Сайт не отвечает" + " " + str(e)))
+            time.sleep(60)
+
         time.sleep(2)
 
 
