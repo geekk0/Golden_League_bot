@@ -35,6 +35,29 @@ def kb_for_admin_reply(pressed_button, status=None):
         return True
 
 
+def start_stop_kb(button):
+
+    global trace_site_btn
+    global admin_kb
+
+    print(button)
+    if button == "trace_site_start":
+        trace_site_btn.callback_data = "trace_site_stop"
+        return True
+    if button == "trace_site_stop":
+        trace_site_btn.callback_data = "trace_site_start"
+        trace_site_btn.text = "Сайт"
+
+
+def btn_status_update(status):
+    global trace_site_btn
+
+    if trace_site_btn.text != "Сайт..." + status:
+        trace_site_btn.text = "Сайт..." + status
+        return True
+    else:
+        return False
+
 
 
 
