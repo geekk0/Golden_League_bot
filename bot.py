@@ -22,10 +22,19 @@ async def send_service_messages(recipients, text):
         await bot.send_message(int(admin_chat_id), text)
 
 
-async def admin_reply(callback_query, text):
-    kb_for_admin_reply(callback_query.data)
-    await bot.edit_message_text(text=text, chat_id=callback_query.message.chat.id,
-                                message_id=callback_query.message.message_id, reply_markup=admin_kb)
+async def admin_reply(callback_query=None, site_status=None, stream_status=None):
+
+    if site_status:
+        status = {"resource": "site", "status": site_status}
+    elif stream_status:
+        status = {"resource": "stream", "status": stream_status}
+    else:
+        status = None
+
+    if kb_for_admin_reply(pressed_button=callback_query.data, status=status):
+
+        await bot.edit_message_reply_markup(chat_id=callback_query.message.chat.id,
+                                                message_id=callback_query.message.message_id, reply_markup=admin_kb)
 
 
 @dp.message_handler(commands=['start'])
@@ -40,31 +49,34 @@ async def trace_site_start(callback_query: types.CallbackQuery):
     global site_error
     stop_trace_site = False
 
-    await admin_reply(callback_query, "Отслеживание сайта запущено")
+    await admin_reply(callback_query, site_status=None)
 
     while not stop_trace_site:
         try:
             requests.get(url="http://188.225.38.178:4000")
-            kb_for_admin_reply("trace_site_start", site_status="Up")
+            site_status = "Up"
+            await admin_reply(callback_query, site_status)
 
             if site_error:
                 await send_service_messages(admin_list, "Сайт поднялся")
                 site_error = False
         except Exception as e:
-            kb_for_admin_reply("trace_site_start", site_status="Down")
+            site_status = "Down"
+            await admin_reply(callback_query, site_status)
             if not site_error:
                 await send_service_messages(admin_list, "Сайт не отвечает")
                 site_error = True
                 logging.error(str(datetime.now().strftime("%d-%m-%Y %H:%M:%S") + " Сайт не отвечает" + " " + str(e)))
-
-        await asyncio.sleep(3)
+        await asyncio.sleep(5)
 
 
 @dp.callback_query_handler(lambda c: c.data == 'trace_site_stop')
 async def trace_site_stop(callback_query: types.CallbackQuery):
     global stop_trace_site
+    global site_error
     stop_trace_site = True
-    await admin_reply(callback_query, "Отслеживание сайта остановлено")
+    site_error = False
+    await admin_reply(callback_query)
 
 
 @dp.callback_query_handler(lambda c: c.data == 'trace_stream_start')
@@ -73,25 +85,23 @@ async def trace_stream_start(callback_query: types.CallbackQuery):
     global stream_error
     stop_trace_stream = False
 
-    await admin_reply(callback_query, "Отслеживание стрима запущено")
-
     while not stop_trace_stream:
         try:
             requests.get(url="http://188.225.38.178:4000")
-            kb_for_admin_reply("trace_stream_start", stream_status="Up")
-
+            stream_status = "Up"
             if stream_error:
                 await send_service_messages(admin_list, "Стрим поднялся")
                 stream_error = False
 
         except Exception as e:
-            kb_for_admin_reply("trace_stream_start", stream_status="Down")
+            stream_status = "Down"
             if not stream_error:
                 await send_service_messages(admin_list, "Стрим не отвечает")
 
                 stream_error = True
                 logging.error(str(datetime.now().strftime("%d-%m-%Y %H:%M:%S") + " Стрим не отвечает" + " " + str(e)))
 
+        # await admin_reply(callback_query, "Отслеживание стрима запущено", stream_status)
         await asyncio.sleep(3)
 
 
@@ -99,7 +109,7 @@ async def trace_stream_start(callback_query: types.CallbackQuery):
 async def trace_stream_stop(callback_query: types.CallbackQuery):
     global stop_trace_stream
     stop_trace_stream = True
-    await admin_reply(callback_query, "Отслеживание стрима остановлено")
+    # await admin_reply(callback_query, "Отслеживание стрима остановлено")
 
 
 if __name__ == "__main__":
