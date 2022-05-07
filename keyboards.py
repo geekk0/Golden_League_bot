@@ -38,6 +38,7 @@ def kb_for_admin_reply(pressed_button, status=None):
 def start_stop_kb(button):
 
     global trace_site_btn
+    global trace_stream_btn
     global admin_kb
 
     print(button)
@@ -47,16 +48,32 @@ def start_stop_kb(button):
     if button == "trace_site_stop":
         trace_site_btn.callback_data = "trace_site_start"
         trace_site_btn.text = "Сайт"
-
-
-def btn_status_update(status):
-    global trace_site_btn
-
-    if trace_site_btn.text != "Сайт..." + status:
-        trace_site_btn.text = "Сайт..." + status
+    if button == "trace_stream_start":
+        trace_stream_btn.callback_data = "trace_stream_stop"
         return True
-    else:
-        return False
+    if button == "trace_stream_stop":
+        trace_stream_btn.callback_data = "trace_stream_start"
+        trace_stream_btn.text = "Стрим"
+
+
+def btn_status_update(resource, status):
+    global trace_site_btn
+    global trace_stream_btn
+    global admin_kb
+
+    if resource == "site":
+        if trace_site_btn.text != "Сайт..." + status:
+            trace_site_btn.text = "Сайт..." + status
+            return True
+        else:
+            return False
+    if resource == "stream":
+        if trace_stream_btn.text != "Стрим..." + status:
+            trace_stream_btn.text = "Стрим..." + status
+            return True
+        else:
+            return False
+
 
 
 

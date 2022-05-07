@@ -3,42 +3,45 @@ import logging
 import requests
 
 from aiogram import Bot, Dispatcher, executor, types
-from config import TOKEN, admin_list
+from config import TOKEN, admin_list, resources
 from datetime import datetime
 from keyboards import admin_kb, start_stop_kb, btn_status_update
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 logging.basicConfig(filename='log_file.log', level=logging.INFO)
-site_error = False
+error = []
 current_admin_list = admin_list
+current_resources = resources
 
 
 async def send_service_messages(resource, text):
     global current_admin_list
 
     for admin_chat_id in current_admin_list.keys():
-        print("/send_service_messages" + str(current_admin_list))
         if resource in current_admin_list[admin_chat_id]:
             await bot.delete_message(admin_chat_id, current_admin_list[admin_chat_id][0])
             await save_admins()
-            await bot.send_message(int(admin_chat_id), text, reply_markup=admin_kb)
+            await bot.send_message(int(admin_chat_id), resource+text, reply_markup=admin_kb)
             current_admin_list[admin_chat_id][0] += 1
 
 
-async def edit_status_button(status):
+async def edit_status_button(resource, status):
     global current_admin_list
-
     for admin_chat_id in current_admin_list.keys():
-        print("/edit_status_btn" + str(current_admin_list))
 
-        if current_admin_list[admin_chat_id][1] == "site" and btn_status_update(status):
+        if (resource in current_admin_list[admin_chat_id]) and btn_status_update(resource, status):
 
             try:
-                await bot.edit_message_reply_markup(admin_chat_id, current_admin_list[admin_chat_id][0],
-                                                    reply_markup=admin_kb)
+                await bot.edit_message_reply_markup(admin_chat_id, current_admin_list[admin_chat_id][0] + 3,
+                                                        reply_markup=admin_kb)
+                await save_admins()
+                # except:
+                # await bot.send_message(admin_chat_id, "Интерфейс администратора: ", reply_markup=admin_kb)
             except:
-                await bot.send_message(admin_chat_id, "Интерфейс администратора: ", reply_markup=admin_kb)
+                print("can't edit message" + resource + status)
+                print("message id: " + str(current_admin_list[admin_chat_id][0]))
+
 
 
 async def save_admins():
@@ -46,7 +49,8 @@ async def save_admins():
 
     f = open("config.py", "w")
     block = "TOKEN = " + "'" + str(TOKEN) + "'" + "\n"
-    block += "admin_list = " + str(admin_list) + "\n"
+    block += "admin_list = " + str(current_admin_list) + "\n"
+    block += "resources = " + str(resources) + "\n"
     f.write(block)
     f.close()
 
@@ -56,8 +60,9 @@ async def admin(message: types.Message):
     global current_admin_list
 
     if message.chat.id in current_admin_list.keys():
+        print(message.message_id)
         current_admin_list[message.chat.id][0] = message.message_id
-        print("/admin" + str(current_admin_list))
+        await save_admins()
         await message.answer("Интерфейс администратора: ", reply_markup=admin_kb)
 
 
@@ -71,26 +76,30 @@ async def my_chat(message: types.Message):
     await message.answer("Чат id: " + str(message.chat.id))
 
 
-@dp.message_handler(commands=['global_trace_site'])
+@dp.message_handler(commands=['global_trace_start'])
 async def global_trace_site(message: types.Message):
-    global site_error
+    global current_resources
+    global error
 
     while True:
-        try:
-            requests.get(url="http://188.225.38.178:4000")
-            site_status = "Up"
-            await edit_status_button(site_status)
-            if site_error:
-                site_error = False
-                await send_service_messages("site", "Сайт поднялся")
-        except Exception as e:
-            site_status = "Down"
-            await edit_status_button(site_status)
-            if not site_error:
-                await send_service_messages("site", "Сайт не отвечает")
-                site_error = True
-                logging.error(str(datetime.now().strftime("%d-%m-%Y %H:%M:%S") + " Сайт не отвечает" + " " + str(e)))
-        await asyncio.sleep(3)
+        for resource in current_resources.keys():
+            try:
+                requests.get(url=current_resources[resource])
+                status = "Up"
+                await edit_status_button(resource, status)
+                if resource in error:
+                    error.remove(resource)
+                    await send_service_messages(resource, " поднялся")
+            except Exception as e:
+                status = "Down"
+                await edit_status_button(resource, status)
+                if resource not in error:
+                    await send_service_messages(resource, " не отвечает")
+                    error.append(resource)
+                    logging.error(str(datetime.now().strftime("%d-%m-%Y %H:%M:%S ") + str(resource) + " не отвечает" +
+                                      " " + str(e)))
+            print(message.message_id)
+            await asyncio.sleep(3)
 
 
 @dp.callback_query_handler(lambda c: 'trace_site' in c.data)
@@ -109,6 +118,27 @@ async def activate_listener(callback_query: types.CallbackQuery):
         await save_admins()
 
         start_stop_kb("trace_site_stop")
+
+    await bot.edit_message_reply_markup(callback_query.message.chat.id, callback_query.message.message_id,
+                                        reply_markup=admin_kb)
+
+
+@dp.callback_query_handler(lambda c: 'trace_stream' in c.data)
+async def activate_listener(callback_query: types.CallbackQuery):
+    global current_admin_list
+
+    if "start" in callback_query.data:
+        start_stop_kb("trace_stream_start")
+        current_admin_list[callback_query.message.chat.id][0] = callback_query.message.message_id
+        current_admin_list[callback_query.message.chat.id][2] = "stream"
+        await save_admins()
+
+    else:
+        current_admin_list[callback_query.message.chat.id][0] = callback_query.message.message_id
+        current_admin_list[callback_query.message.chat.id][2] = "None"
+        await save_admins()
+
+        start_stop_kb("trace_stream_stop")
 
     await bot.edit_message_reply_markup(callback_query.message.chat.id, callback_query.message.message_id,
                                         reply_markup=admin_kb)
