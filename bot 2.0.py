@@ -20,7 +20,11 @@ async def send_service_messages(resource, text):
 
     for admin_chat_id in current_admin_list.keys():
         if resource in current_admin_list[admin_chat_id]:
-            await bot.delete_message(admin_chat_id, current_admin_list[admin_chat_id][0])
+            try:
+                await bot.delete_message(admin_chat_id, current_admin_list[admin_chat_id][0])
+            except:
+                logging.error(str(datetime.now().strftime("%d-%m-%Y %H:%M:%S ") + str(resource) +
+                                  " нет сообщения для удаления"))
             await save_admins()
             await bot.send_message(int(admin_chat_id), resource+text, reply_markup=admin_kb)
             current_admin_list[admin_chat_id][0] += 1
@@ -33,7 +37,7 @@ async def edit_status_button(resource, status):
         if (resource in current_admin_list[admin_chat_id]) and btn_status_update(resource, status):
 
             try:
-                await bot.edit_message_reply_markup(admin_chat_id, current_admin_list[admin_chat_id][0] + 3,
+                await bot.edit_message_reply_markup(admin_chat_id, current_admin_list[admin_chat_id][0],
                                                         reply_markup=admin_kb)
                 await save_admins()
                 # except:
@@ -61,7 +65,7 @@ async def admin(message: types.Message):
 
     if message.chat.id in current_admin_list.keys():
         print(message.message_id)
-        current_admin_list[message.chat.id][0] = message.message_id
+        current_admin_list[message.chat.id][0] = message.message_id + 1
         await save_admins()
         await message.answer("Интерфейс администратора: ", reply_markup=admin_kb)
 
@@ -71,7 +75,7 @@ async def admin(message: types.Message):
     await message.answer(str(current_admin_list))
 
 
-@dp.message_handler(commands=["my_chat_id"])
+@dp.message_handler(commands=["start"])
 async def my_chat(message: types.Message):
     await message.answer("Чат id: " + str(message.chat.id))
 
@@ -85,6 +89,7 @@ async def global_trace_site(message: types.Message):
         for resource in current_resources.keys():
             try:
                 requests.get(url=current_resources[resource])
+                print(requests.get(url=current_resources[resource]))
                 status = "Up"
                 await edit_status_button(resource, status)
                 if resource in error:
@@ -99,7 +104,7 @@ async def global_trace_site(message: types.Message):
                     logging.error(str(datetime.now().strftime("%d-%m-%Y %H:%M:%S ") + str(resource) + " не отвечает" +
                                       " " + str(e)))
             print(message.message_id)
-            await asyncio.sleep(3)
+            await asyncio.sleep(2)
 
 
 @dp.callback_query_handler(lambda c: 'trace_site' in c.data)
