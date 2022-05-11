@@ -72,6 +72,13 @@ async def get_stream_file():
     await save_admins()
 
 
+async def time_check():
+
+    evening_restart_datetime = datetime.now().replace(hour=23, minute=55)
+    morning_restart_time = datetime.now().replace(hour=0, minute=5)
+
+    return morning_restart_time < datetime.now() < evening_restart_datetime
+
 
 @dp.message_handler(commands=['admin'])
 async def admin(message: types.Message):
@@ -105,6 +112,7 @@ async def global_trace_site(message: types.Message):
                     await get_stream_file()
 
                 requests.get(url=current_resources[resource])
+                await time_check()
                 if not requests.get(url=current_resources[resource]).status_code == 404:
 
                     status = "Up"
@@ -119,11 +127,12 @@ async def global_trace_site(message: types.Message):
             except Exception as e:
                 status = "Down"
                 await edit_status_button(resource, status)
-                if resource not in error:
-                    await send_service_messages(resource, " не отвечает")
-                    error.append(resource)
-                    logging.error(str(datetime.now().strftime("%d-%m-%Y %H:%M:%S ") + str(resource) + " не отвечает" +
-                                      " " + str(e)))
+                if await time_check():
+                    if resource not in error:
+                        await send_service_messages(resource, " не отвечает")
+                        error.append(resource)
+                        logging.error(str(datetime.now().strftime("%d-%m-%Y %H:%M:%S ") + str(resource) + " не отвечает" +
+                                          " " + str(e)))
             await asyncio.sleep(2)
 
 
