@@ -59,12 +59,25 @@ async def save_admins():
     f.close()
 
 
+async def get_stream_file():
+
+    url = 'https://golden-league.pro/hls_stream/stream.m3u8'
+
+    raw_response = requests.get(url).content.decode().splitlines()
+
+    for string in raw_response:
+        if string.endswith(".ts"):
+            resources["stream"] = "https://golden-league.pro/hls_stream/" + string
+            break
+    await save_admins()
+
+
+
 @dp.message_handler(commands=['admin'])
 async def admin(message: types.Message):
     global current_admin_list
 
     if message.chat.id in current_admin_list.keys():
-        print(message.message_id)
         current_admin_list[message.chat.id][0] = message.message_id + 1
         await save_admins()
         await message.answer("Интерфейс администратора: ", reply_markup=admin_kb)
@@ -88,13 +101,21 @@ async def global_trace_site(message: types.Message):
     while True:
         for resource in current_resources.keys():
             try:
+                if resource == 'stream':
+                    await get_stream_file()
+
                 requests.get(url=current_resources[resource])
-                print(requests.get(url=current_resources[resource]))
-                status = "Up"
-                await edit_status_button(resource, status)
-                if resource in error:
-                    error.remove(resource)
-                    await send_service_messages(resource, " поднялся")
+                if not requests.get(url=current_resources[resource]).status_code == 404:
+
+                    status = "Up"
+                    await edit_status_button(resource, status)
+                    if resource in error:
+                        error.remove(resource)
+                        await send_service_messages(resource, " поднялся")
+
+                else:
+                    raise Exception
+
             except Exception as e:
                 status = "Down"
                 await edit_status_button(resource, status)
@@ -103,7 +124,6 @@ async def global_trace_site(message: types.Message):
                     error.append(resource)
                     logging.error(str(datetime.now().strftime("%d-%m-%Y %H:%M:%S ") + str(resource) + " не отвечает" +
                                       " " + str(e)))
-            print(message.message_id)
             await asyncio.sleep(2)
 
 
